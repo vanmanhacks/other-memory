@@ -25,11 +25,9 @@
 
 ## Inspiration
 
-This project was born from a [single Reddit comment](https://www.reddit.com/r/hermesagent/comments/1ti2s9u/comment/omrw01p/?context=3) by u/Difficult_Hand_509 on r/hermesagent:
+This project was born from a [Reddit comment](https://www.reddit.com/r/hermesagent/comments/1ti2s9u/comment/omrw01p/?context=3) by u/Difficult_Hand_509 on r/hermesagent:
 
 > *"For searching I suggest you use Searxng self hosted. You also want to use Crawl4ai. Point Hermes to both their full documentation and have it implement a search and crawl version of web search. They are great complement of each other. If you have Claude code ask Claude to do it for you as a connected mcp. You'll need a self hosted mcp server check out MetaMCP. It will work a lot better than firecrawl and tavily and never pay a penny for search and web crawling."*
-
-One comment. One idea. One afternoon with Claude Code. What emerged is a battle-tested, production-hardened MCP bridge that has served as the primary web search and crawl backend for a Hermes Agent running 24/7 for weeks — processing hundreds of searches and crawls without a single API bill.
 
 If you've ever wondered whether you can replace Firecrawl + Tavily with something self-hosted, free, and better: **yes, you can**. This is the blueprint.
 
