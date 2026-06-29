@@ -1,0 +1,104 @@
+# Searxng settings — privacy-first meta search for Other Memory
+# Exposes JSON API at localhost:8888 for MetaMCP bridge consumption
+
+use_default_settings: true
+
+general:
+  instance_name: "Other Memory"
+  debug: false
+  privacypolicy_url: ""
+  contact_url: ""
+  enable_metrics: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "en"
+  formats:
+    - html
+    - json
+
+server:
+  secret_key: "${SEARXNG_SECRET}"
+  bind_address: "0.0.0.0"
+  port: 8080
+  limiter: true
+  image_proxy: false
+  # Only accept GET requests. POST requests (long queries) return 405.
+  # MetaMCP bridge only sends GET — intentional constraint.
+  method: "GET"
+  default_http_headers:
+    Access-Control-Allow-Origin: "*"
+    Access-Control-Allow-Methods: "GET, POST"
+
+ui:
+  static_use_hash: true
+  default_theme: simple
+  default_locale: en
+
+# ─── Search Engines ───
+# Enable all major engines for maximum coverage.
+# Searxng queries engines in parallel; response time is max(slowest engine).
+engines:
+  # General web search
+  - name: google
+    engine: google
+    shortcut: g
+    disabled: false
+
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    disabled: false
+
+  - name: bing
+    engine: bing
+    shortcut: bi
+    disabled: false
+
+  - name: brave
+    engine: brave
+    shortcut: br
+    disabled: false
+
+  - name: mojeek
+    engine: mojeek
+    disabled: false
+
+  - name: qwant
+    engine: qwant
+    disabled: false
+
+  - name: startpage
+    engine: startpage
+    disabled: false
+
+  # News
+  - name: google news
+    engine: google_news
+    shortcut: gn
+    disabled: false
+
+  # Technical / code search
+  - name: github
+    engine: github
+    shortcut: gh
+    disabled: false
+
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: wp
+    disabled: false
+
+outgoing:
+  request_timeout: 10.0
+  max_request_timeout: 15.0
+  pool_connections: 100
+  pool_maxsize: 10
+  enable_http2: true
+  # Rotating user agents to spread load across upstream engines
+  useragents:
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (X11; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15"
+    - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0"

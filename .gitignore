@@ -1,0 +1,37 @@
+# Secrets
+.env
+
+# Docker volumes
+searxng_data/
+om_redis_data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Nix
+result
+.direnv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secret files (keep local, never commit)
+crawl4ai_token
+searxng_secret
+env
+
+# Internal docs (not for public repo)
+*.html
+*-deploy-*.sh
+*-plan.md
+*-review.md
+*-PSD.md
+*-implementation-plan.md
+*-code-review.md
+
+# Docker data
+searxng_data/
+om_redis_data/

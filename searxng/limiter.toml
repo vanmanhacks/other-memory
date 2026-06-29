@@ -1,0 +1,9 @@
+# Searxng rate limiter — prevents abuse of upstream search engines.
+# Conservative: localhost and Docker bridge are trusted — no rate limiting.
+# The MetaMCP bridge adds its own Redis cache layer (1-hour TTL) on top of this.
+
+[botdetection.ip_lists]
+pass_ip = [
+  "127.0.0.0/8",
+  "172.17.0.0/16",
+]

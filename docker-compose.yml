@@ -1,0 +1,86 @@
+# Other Memory — Self-Hosted Search & Crawl Intelligence
+# Runs alongside GHOLA on the same host. No port conflicts.
+# All services on host network (legitimate search traffic, no VPN needed).
+#
+# Ports: searxng=8888, crawl4ai=11235, redis=6380 (GHOLA uses 6379)
+
+secrets:
+  searxng_secret:
+    file: ./searxng_secret
+  crawl4ai_token:
+    file: ./crawl4ai_token
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "50m"
+    max-file: "3"
+
+services:
+  # ─── Searxng: Meta Search Engine ───
+  searxng:
+    image: searxng/searxng:2026.6.4-e6559c9ad@sha256:4ada04f4af9d1b229a2f23a579db8ed11e57fa000558c195239c912451cd9ae0  # Pin: 2026-06-04, amd64
+    container_name: om-searxng
+    ports:
+      - "127.0.0.1:8888:8080"
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - ./searxng/limiter.toml:/etc/searxng/limiter.toml:ro
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8888/
+    secrets:
+      - searxng_secret
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    restart: unless-stopped
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/search?q=healthcheck&format=json || curl -sf http://localhost:8080/search?q=healthcheck&format=json"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  # ─── Crawl4ai: JS-Aware Web Crawler ───
+  crawl4ai:
+    # Pin: Docker Hub tags use semver (0.8.9, 0.8, 0, latest). NOT crawl4ai-vX.Y.Z.
+    image: unclecode/crawl4ai:0.8.9@sha256:d3e5b59faca914f3bafb937ef5c50f61d51d1c43297c0cff4a48cf5c49ea8d5e
+    container_name: om-crawl4ai
+    ports:
+      - "127.0.0.1:11235:11235"
+    environment:
+      - CRAWL4AI_MAX_CONCURRENT=3
+      - CRAWL4AI_RATE_LIMIT=10
+    secrets:
+      - crawl4ai_token
+    mem_limit: 2g
+    restart: unless-stopped
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:11235/health || curl -sf http://localhost:11235/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  # ─── Redis: Search Cache ───
+  redis:
+    image: redis:7-alpine
+    container_name: om-redis
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - om_redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "PING"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  om_redis_data:
