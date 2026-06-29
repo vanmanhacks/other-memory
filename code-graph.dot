@@ -1,0 +1,166 @@
+digraph other_memory {
+    rankdir=TB;
+    bgcolor="#020617";
+    fontname="JetBrains Mono";
+    fontsize=12;
+    fontcolor="#94a3b8";
+    label="Other Memory — Code Dependency Graph";
+    labelloc=t;
+    labeljust=l;
+    pad=0.8;
+    
+    node [fontname="JetBrains Mono", fontsize=11, style=filled, penwidth=1.5, margin="0.15,0.1"];
+    edge [fontname="JetBrains Mono", fontsize=9, arrowsize=0.8];
+    
+    # ─── External dependencies ───
+    subgraph cluster_external {
+        label="External Services";
+        style="dashed";
+        color="#fbbf24";
+        bgcolor="#02061755";
+        fontname="JetBrains Mono";
+        fontsize=10;
+        fontcolor="#fbbf24";
+        
+        searxng [label="SearXNG
+:8888", shape=cylinder, fillcolor="#fbbf2420", color="#fbbf24", fontcolor="#fbbf24"];
+        crawl4ai [label="Crawl4AI
+:11235", shape=cylinder, fillcolor="#fbbf2420", color="#fbbf24", fontcolor="#fbbf24"];
+        redis [label="Redis
+:6380", shape=cylinder, fillcolor="#fbbf2420", color="#fbbf24", fontcolor="#fbbf24"];
+    }
+    
+    # ─── Python packages ───
+    subgraph cluster_python {
+        label="Python Packages (pip)";
+        style="dashed";
+        color="#a78bfa";
+        bgcolor="#02061755";
+        fontname="JetBrains Mono";
+        fontsize=10;
+        fontcolor="#a78bfa";
+        
+        mcp_sdk [label="mcp (SDK)", shape=folder, fillcolor="#a78bfa20", color="#a78bfa", fontcolor="#a78bfa"];
+        httpx [label="httpx", shape=folder, fillcolor="#a78bfa20", color="#a78bfa", fontcolor="#a78bfa"];
+        redis_py [label="redis-py", shape=folder, fillcolor="#a78bfa20", color="#a78bfa", fontcolor="#a78bfa"];
+        starlette [label="starlette
+(SSE mode)", shape=folder, fillcolor="#a78bfa20", color="#a78bfa", fontcolor="#a78bfa"];
+        uvicorn [label="uvicorn
+(SSE mode)", shape=folder, fillcolor="#a78bfa20", color="#a78bfa", fontcolor="#a78bfa"];
+    }
+    
+    # ─── MCP Bridge ───
+    subgraph cluster_bridge {
+        label="MetaMCP Bridge";
+        style="rounded,filled";
+        color="#34d399";
+        bgcolor="#34d39910";
+        fontname="JetBrains Mono";
+        fontsize=11;
+        fontcolor="#34d399";
+        
+        server [label="server.py
+(521 lines)
+
+• MCP stdio server
+• web_search()
+• web_crawl()
+• SSRF guard
+• Token budget", shape=box, fillcolor="#34d39920", color="#34d399", fontcolor="#34d399", width=2.5];
+        init [label="__init__.py
+v0.1.0", shape=box, fillcolor="#34d39920", color="#34d399", fontcolor="#34d399", width=1.2];
+        run_sh [label="run.sh
+(launcher)", shape=box, fillcolor="#34d39920", color="#34d399", fontcolor="#34d399", width=1.2];
+        reqs [label="requirements.txt
+mcp, httpx, redis", shape=box, fillcolor="#34d39920", color="#34d399", fontcolor="#34d399", width=1.8];
+    }
+    
+    # ─── Infrastructure ───
+    subgraph cluster_infra {
+        label="Infrastructure";
+        style="rounded";
+        color="#22d3ee";
+        bgcolor="#22d3ee10";
+        fontname="JetBrains Mono";
+        fontsize=11;
+        fontcolor="#22d3ee";
+        
+        compose [label="docker-compose.yml
+
+SearXNG + Crawl4AI
++ Redis stack", shape=box, fillcolor="#22d3ee20", color="#22d3ee", fontcolor="#22d3ee", width=2.2];
+        nix_mod [label="other-memory.nix
+
+• secret generation
+• systemd services", shape=box, fillcolor="#22d3ee20", color="#22d3ee", fontcolor="#22d3ee", width=2.2];
+        s_sett [label="settings.yml
+10 search engines", shape=box, fillcolor="#22d3ee20", color="#22d3ee", fontcolor="#22d3ee", width=1.5];
+        s_limit [label="limiter.toml
+rate config", shape=box, fillcolor="#22d3ee20", color="#22d3ee", fontcolor="#22d3ee", width=1.5];
+    }
+    
+    # ─── Config / Docs ───
+    readme [label="README.md
+(448 lines)", shape=box, fillcolor="#fb718520", color="#fb7185", fontcolor="#fb7185"];
+    env_ex [label=".env.example", shape=box, fillcolor="#fb718520", color="#fb7185", fontcolor="#fb7185"];
+    license [label="LICENSE
+MIT", shape=box, fillcolor="#fb718520", color="#fb7185", fontcolor="#fb7185"];
+    
+    # ─── Agent / User ───
+    agent [label="AI Agent
+(Hermes / Claude Code)", shape=component, fillcolor="#94a3b820", color="#94a3b8", fontcolor="#94a3b8", width=2];
+    
+    # ─── EDGES ───
+    
+    # Bridge → External
+    server -> searxng [label="HTTP GET
+/search?q=...", color="#fbbf24", fontcolor="#fbbf24"];
+    server -> crawl4ai [label="HTTP POST
+/crawl", color="#fbbf24", fontcolor="#fbbf24"];
+    server -> redis [label="SETEX/GET
+cache (1h TTL)", color="#fbbf24", fontcolor="#fbbf24", style=dashed];
+    
+    # Bridge → Python deps
+    server -> mcp_sdk [color="#a78bfa", fontcolor="#a78bfa"];
+    server -> httpx [color="#a78bfa", fontcolor="#a78bfa"];
+    server -> redis_py [color="#a78bfa", fontcolor="#a78bfa", style=dashed];
+    server -> starlette [color="#a78bfa33", fontcolor="#a78bfa55", style=dotted];
+    server -> uvicorn [color="#a78bfa33", fontcolor="#a78bfa55", style=dotted];
+    
+    # Bridge → internal
+    server -> init [color="#34d39955", style=dotted];
+    run_sh -> server [label="launches", color="#34d399", fontcolor="#34d399"];
+    reqs -> mcp_sdk [color="#a78bfa55", style=dotted];
+    reqs -> httpx [color="#a78bfa55", style=dotted];
+    reqs -> redis_py [color="#a78bfa55", style=dotted];
+    
+    # Infrastructure → services
+    compose -> searxng [label="runs", color="#22d3ee", fontcolor="#22d3ee", style=dashed];
+    compose -> crawl4ai [label="runs", color="#22d3ee", fontcolor="#22d3ee", style=dashed];
+    compose -> redis [label="runs", color="#22d3ee", fontcolor="#22d3ee", style=dashed];
+    compose -> s_sett [color="#22d3ee", fontcolor="#22d3ee", style=dotted];
+    compose -> s_limit [color="#22d3ee", fontcolor="#22d3ee", style=dotted];
+    nix_mod -> compose [label="docker compose up", color="#22d3ee", fontcolor="#22d3ee"];
+    
+    # Agent → Bridge
+    agent -> server [label="MCP stdio
+(web_search,
+web_crawl)", color="#94a3b8", fontcolor="#94a3b8", penwidth=2];
+    
+    # Legend
+    subgraph cluster_legend {
+        label="Legend";
+        style="rounded,dashed";
+        color="#64748b";
+        bgcolor="#020617";
+        fontname="JetBrains Mono";
+        fontsize=9;
+        fontcolor="#64748b";
+        
+        l1 [label="Bridge Code", shape=box, fillcolor="#34d39920", color="#34d399", fontcolor="#34d399", width=1];
+        l2 [label="Infrastructure", shape=box, fillcolor="#22d3ee20", color="#22d3ee", fontcolor="#22d3ee", width=1];
+        l3 [label="External Service", shape=cylinder, fillcolor="#fbbf2420", color="#fbbf24", fontcolor="#fbbf24", width=1];
+        l4 [label="Python Package", shape=folder, fillcolor="#a78bfa20", color="#a78bfa", fontcolor="#a78bfa", width=1];
+        l5 [label="Config / Docs", shape=box, fillcolor="#fb718520", color="#fb7185", fontcolor="#fb7185", width=1];
+    }
+}
