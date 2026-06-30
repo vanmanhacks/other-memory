@@ -155,8 +155,8 @@ async def list_tools() -> list[Tool]:
                 "Crawl a web page and extract its content. Renders JavaScript for "
                 "SPA/dynamic sites using a headless browser. Returns clean text, "
                 "markdown, or raw HTML. Content is truncated at 50K characters to "
-                "stay within token budgets — use extract_mode selection to focus "
-                "on what you need."
+                "stay within token budgets — set max_chars higher for deep pages "
+                "or 0 to disable truncation entirely."
             ),
             inputSchema={
                 "type": "object",
@@ -175,6 +175,11 @@ async def list_tools() -> list[Tool]:
                         "enum": ["markdown", "text", "html"],
                         "default": "markdown",
                         "description": "Output format: markdown (best for reading), text (plain, no formatting), html (raw source).",
+                    },
+                    "max_chars": {
+                        "type": "integer",
+                        "default": 50000,
+                        "description": "Maximum characters in output. Set higher for long pages, 0 to disable truncation. Truncated content shows a midpoint cut notice.",
                     },
                 },
                 "required": ["url"],
@@ -199,6 +204,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             url=str(arguments["url"]),
             render_js=bool(arguments.get("render_js", True)),
             extract_mode=str(arguments.get("extract_mode", "markdown")),
+            max_chars=int(arguments.get("max_chars", MAX_CRAWL_OUTPUT_CHARS)),
         )
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
@@ -313,6 +319,7 @@ async def crawl_url(
     url: str,
     render_js: bool = True,
     extract_mode: str = "markdown",
+    max_chars: int = MAX_CRAWL_OUTPUT_CHARS,
 ) -> dict[str, Any]:
     """Crawl a URL via Crawl4ai and extract content."""
 
@@ -437,9 +444,10 @@ async def crawl_url(
     if extract_mode in ("markdown", "html"):
         link_count = len(re.findall(r"https?://", content))
 
-    content_truncated = len(content) > MAX_CRAWL_OUTPUT_CHARS
+    content_truncated = max_chars > 0 and len(content) > max_chars
     original_len = len(content)
-    content = _truncate(content)
+    if max_chars > 0:
+        content = _truncate(content, max_chars=max_chars)
 
     result = {
         "url": url,
