@@ -363,10 +363,9 @@ async def crawl_url(
             "type": "basic",
         },
     }
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {CRAWL4AI_TOKEN}",
-    }
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if CRAWL4AI_TOKEN:
+        headers["Authorization"] = f"Bearer {CRAWL4AI_TOKEN}"
 
     started = time.monotonic()
     try:
