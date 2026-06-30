@@ -2,6 +2,8 @@
 
 > *"Memory never recaptures reality. Memory reconstructs."* — Frank Herbert, *Dune*
 
+![Other Memory — Self-hosted search & crawl for AI agents](banner.png)
+
 **Self-hosted search and crawl intelligence for AI agents. Zero API costs. Zero rate limits. Works with Hermes Agent, Claude Code, Codex, and any MCP-compatible client.**
 
 ## Contents
