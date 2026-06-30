@@ -1,6 +1,6 @@
 # Other Memory
 
-> *"Polish comes from the cities; wisdom from the desert."*, Frank Herbert, *Dune* (Fremen saying)
+> *"Memory never recaptures reality. Memory reconstructs."* — Frank Herbert, *Dune*
 
 **Self-hosted search and crawl intelligence for AI agents. Zero API costs. Zero rate limits. Works with Hermes Agent, Claude Code, Codex, and any MCP-compatible client.**
 
