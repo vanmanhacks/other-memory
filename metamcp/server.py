@@ -18,6 +18,7 @@ import os
 import re
 import time
 import ipaddress
+import socket
 import urllib.parse
 from datetime import datetime, timezone
 from typing import Any
@@ -37,14 +38,16 @@ log = logging.getLogger("other-memory")
 
 # ─── Configuration ───
 
-SEARXNG_URL = "http://localhost:8888"
-CRAWL4AI_URL = "http://localhost:11235"
-REDIS_URL = "redis://localhost:6380/0"
-CRAWL4AI_TOKEN = os.environ.get("CRAWL4AI_TOKEN", "")
+SEARXNG_URL = os.environ.get("SEARXNG_URL", "http://localhost:8888")
+CRAWL4AI_URL = os.environ.get("CRAWL4AI_URL", "http://localhost:11235")
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", "")
+REDIS_URL = os.environ.get("REDIS_URL") or (
+    f"redis://:{REDIS_PASSWORD}@localhost:6380/0" if REDIS_PASSWORD else "redis://localhost:6380/0"
+)
 
-# Blocked URL schemes and hosts to prevent SSRF/internal probing through web_crawl.
-# The bridge should only crawl public http/https URLs.
-BLOCKED_SCHEMES = {"file", "ftp", "gopher", "data", "javascript", "vbscript", "ssh", "telnet", "ldap", "dict", "tftp", "ipp"}
+# Blocked hostnames to prevent SSRF/internal probing through web_crawl.
+# Non-HTTP(S) schemes are rejected outright; DNS names are resolved and their
+# addresses checked in _is_public_host() (see below).
 BLOCKED_HOSTS = {
     "localhost", "127.0.0.1", "0.0.0.0", "::1",
     "169.254.169.254",  # AWS / GCP / Azure metadata endpoints
@@ -103,6 +106,53 @@ def _truncate(text: str, max_chars: int = MAX_CRAWL_OUTPUT_CHARS) -> str:
         + f"original content is {len(text):,} chars. Use web_crawl to re-fetch with extract_mode='text' for raw output ...]\n\n"
         + text[-half:]
     )
+
+
+def _normalize_ipv4(hostname: str) -> str | None:
+    """Normalize integer/hex/octal IPv4 notations (2130706433, 0x7f000001,
+    0177.0.0.1) to dotted-quad. Returns None if hostname is not such a notation.
+    ipaddress.ip_address() rejects these forms, which would otherwise slip past
+    the SSRF guard as "hostnames"."""
+    h = hostname.strip()
+    try:
+        if h.lower().startswith("0x"):
+            val = int(h, 16)
+        elif len(h) > 1 and h.startswith("0") and all(c in "01234567" for c in h):
+            val = int(h, 8)
+        elif h.isdigit():
+            val = int(h, 10)
+        else:
+            return None
+        if 0 <= val <= 0xFFFFFFFF:
+            return str(ipaddress.IPv4Address(val))
+    except (ValueError, OverflowError):
+        return None
+    return None
+
+
+def _is_public_host(hostname: str) -> bool:
+    """True only if hostname is a public address (literal or DNS-resolved).
+
+    Blocks private/loopback/link-local/reserved/multicast/unspecified addresses —
+    closing the DNS-rebinding and non-standard-notation SSRF bypasses.
+    Unresolvable or unparseable hosts are refused (fail closed)."""
+    literal = _normalize_ipv4(hostname)
+    if literal is not None:
+        addrs = [literal]
+    else:
+        try:
+            addrs = sorted({info[4][0] for info in socket.getaddrinfo(hostname, None)})
+        except (socket.gaierror, OSError):
+            return False
+    for a in addrs:
+        try:
+            ip = ipaddress.ip_address(a)
+        except ValueError:
+            return False
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            return False
+    return True
 
 
 # ─── MCP Server ───
@@ -230,8 +280,8 @@ async def search_searxng(
         "cats": sorted(categories) if categories else ["general"],
     }
     r = _get_redis()
+    key = _cache_key("search", **cache_params)
     if r:
-        key = _cache_key("search", **cache_params)
         cached = r.get(key)
         if cached:
             result = json.loads(cached)
@@ -310,7 +360,7 @@ async def search_searxng(
 
     # ── Store in cache ──
     if r:
-        r.setex(key, CACHE_TTL_SECONDS, json.dumps(result))
+        r.set(key, json.dumps(result), ex=CACHE_TTL_SECONDS)
 
     return result
 
@@ -328,25 +378,20 @@ async def crawl_url(
     if not parsed.scheme or not parsed.netloc:
         return {"error": f"Invalid URL: {url}", "url": url}
 
-    # SSRF guard: block non-HTTP schemes and internal/metadata hosts
-    if parsed.scheme.lower() in BLOCKED_SCHEMES:
+    # SSRF guard: allow only http/https and block internal/metadata targets.
+    if parsed.scheme.lower() not in ("http", "https"):
         return {"error": f"Blocked URL scheme '{parsed.scheme}': only http/https are allowed", "url": url}
     hostname = parsed.hostname or ""
     if hostname.lower() in BLOCKED_HOSTS:
         return {"error": f"Blocked host '{hostname}': internal addresses are not crawlable", "url": url}
-    # Block private IP ranges (10.x, 172.16-31.x, 192.168.x)
-    try:
-        addr = ipaddress.ip_address(hostname)
-        if addr.is_private or addr.is_loopback or addr.is_link_local:
-            return {"error": f"Blocked host '{hostname}': private/loopback IP addresses are not crawlable", "url": url}
-    except ValueError:
-        pass  # hostname, not IP — proceed
+    if not _is_public_host(hostname):
+        return {"error": f"Blocked host '{hostname}': resolves to a private/internal address", "url": url}
 
-    # ── Check cache (same URL + same extract mode = same result) ──
-    cache_params = {"url": url, "js": render_js, "mode": extract_mode}
+    # ── Check cache (same URL + same extract mode + same truncation = same result) ──
+    cache_params = {"url": url, "js": render_js, "mode": extract_mode, "mc": max_chars}
     r = _get_redis()
+    key = _cache_key("crawl", **cache_params)
     if r:
-        key = _cache_key("crawl", **cache_params)
         cached = r.get(key)
         if cached:
             result = json.loads(cached)
@@ -364,8 +409,6 @@ async def crawl_url(
         },
     }
     headers: dict[str, str] = {"Content-Type": "application/json"}
-    if CRAWL4AI_TOKEN:
-        headers["Authorization"] = f"Bearer {CRAWL4AI_TOKEN}"
 
     started = time.monotonic()
     try:
@@ -465,7 +508,7 @@ async def crawl_url(
 
     # ── Store in cache ──
     if r:
-        r.setex(key, CACHE_TTL_SECONDS, json.dumps(result))
+        r.set(key, json.dumps(result), ex=CACHE_TTL_SECONDS)
 
     return result
 

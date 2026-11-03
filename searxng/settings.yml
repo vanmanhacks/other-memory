@@ -49,29 +49,30 @@ engines:
   - name: duckduckgo
     engine: duckduckgo
     shortcut: ddg
-    disabled: false
+    disabled: true
 
   - name: bing
     engine: bing
     shortcut: bi
     disabled: false
 
+  # Suspended upstreams (IP rate-limited) — disabled 2026-10-31
   - name: brave
     engine: brave
     shortcut: br
-    disabled: false
+    disabled: true
 
   - name: mojeek
     engine: mojeek
-    disabled: false
+    disabled: true
 
   - name: qwant
     engine: qwant
-    disabled: false
+    disabled: true
 
   - name: startpage
     engine: startpage
-    disabled: false
+    disabled: true
 
   # News
   - name: google news
